@@ -9,6 +9,9 @@ interface PluginResponse {
 // Initialize an empty plugins array to store the data
 const plugins: PluginResponse[] = [];
 
+// Base URL for the API endpoints
+const BASE_URL = window.location.origin;
+
 export const getPlugins = async (): Promise<PluginResponse[]> => {
   // This would typically fetch from your backend
   // For now, we'll return the plugins from state
@@ -17,7 +20,7 @@ export const getPlugins = async (): Promise<PluginResponse[]> => {
 
 export const getPluginDownloadUrl = (pluginId: string): string => {
   // In a real implementation, this would generate a secure, temporary download URL
-  return `/api/plugins/download/${pluginId}`;
+  return `${BASE_URL}/api/plugins/download/${pluginId}`;
 };
 
 export const verifyPluginVersion = async (
