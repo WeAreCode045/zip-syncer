@@ -3,9 +3,6 @@ import type { Database } from '@/integrations/supabase/types';
 
 type Plugin = Database['public']['Tables']['plugins']['Row'];
 
-// Initialize an empty plugins array to store the data
-const plugins: Plugin[] = [];
-
 // Base URL for the API endpoints
 const BASE_URL = window.location.origin;
 
