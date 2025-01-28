@@ -1,21 +1,15 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 
-interface PluginResponse {
-  id: string;
-  name: string;
-  version: string;
-  description: string;
-  file_url: string;
-  upload_date: string;
-}
+type Plugin = Database['public']['Tables']['plugins']['Row'];
 
 // Initialize an empty plugins array to store the data
-const plugins: PluginResponse[] = [];
+const plugins: Plugin[] = [];
 
 // Base URL for the API endpoints
 const BASE_URL = window.location.origin;
 
-export const getPlugins = async (): Promise<PluginResponse[]> => {
+export const getPlugins = async (): Promise<Plugin[]> => {
   const { data, error } = await supabase
     .from('plugins')
     .select('*');
@@ -111,6 +105,10 @@ export const getPluginDownloadUrl = async (pluginId: string): Promise<string> =>
   if (error) {
     console.error('Error getting plugin download URL:', error);
     throw error;
+  }
+
+  if (!data) {
+    throw new Error('Plugin not found');
   }
 
   return data.file_url;
