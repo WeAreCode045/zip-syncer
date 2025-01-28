@@ -4,73 +4,83 @@ import UploadForm from '@/components/UploadForm';
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { getPlugins, getPluginDownloadUrl, verifyPluginVersion } from '@/utils/api';
+import { getPlugins, uploadPlugin, deletePlugin, getPluginDownloadUrl } from '@/utils/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface Plugin {
   id: string;
   name: string;
   version: string;
   description: string;
-  uploadDate: string;
+  upload_date: string;
 }
-
-const STORAGE_KEY = 'plugin_library_plugins';
 
 const Index = () => {
   const [showUploadForm, setShowUploadForm] = useState(false);
-  const [plugins, setPlugins] = useState<Plugin[]>([]);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  // Load plugins from localStorage on component mount
-  useEffect(() => {
-    const storedPlugins = localStorage.getItem(STORAGE_KEY);
-    if (storedPlugins) {
-      setPlugins(JSON.parse(storedPlugins));
-    }
-  }, []);
+  // Fetch plugins using React Query
+  const { data: plugins = [], isLoading } = useQuery({
+    queryKey: ['plugins'],
+    queryFn: getPlugins,
+  });
 
-  // Save plugins to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(plugins));
-  }, [plugins]);
-
-  const handleUpload = async (formData: FormData) => {
-    try {
-      const mockPlugin = {
-        id: Date.now().toString(),
-        name: formData.get("file") as File ? (formData.get("file") as File).name.replace('.zip', '') : "Plugin Name",
-        version: formData.get("version") as string,
-        description: formData.get("description") as string,
-        uploadDate: new Date().toLocaleDateString(),
-      };
-
-      setPlugins([mockPlugin, ...plugins]);
+  // Upload mutation
+  const uploadMutation = useMutation({
+    mutationFn: (formData: FormData) => {
+      const file = formData.get('file') as File;
+      const version = formData.get('version') as string;
+      const description = formData.get('description') as string;
+      return uploadPlugin(file, version, description);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plugins'] });
       setShowUploadForm(false);
-      
       toast({
         title: "Success",
         description: "Plugin uploaded successfully",
       });
-    } catch (error) {
+    },
+    onError: (error) => {
       toast({
         title: "Error",
         description: "Failed to upload plugin",
         variant: "destructive",
       });
-    }
+    },
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: deletePlugin,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plugins'] });
+      toast({
+        title: "Success",
+        description: "Plugin deleted successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to delete plugin",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleUpload = async (formData: FormData) => {
+    uploadMutation.mutate(formData);
   };
 
-  const handleDelete = (id: string) => {
-    setPlugins(plugins.filter(plugin => plugin.id !== id));
-    toast({
-      title: "Success",
-      description: "Plugin deleted successfully",
-    });
+  const handleDelete = async (id: string) => {
+    deleteMutation.mutate(id);
   };
 
   const handleDownload = async (id: string) => {
     try {
-      const downloadUrl = getPluginDownloadUrl(id);
+      const downloadUrl = await getPluginDownloadUrl(id);
       window.open(downloadUrl, '_blank');
       
       toast({
@@ -85,18 +95,6 @@ const Index = () => {
       });
     }
   };
-
-  // API endpoint for WordPress plugin version check
-  React.useEffect(() => {
-    // Expose API endpoints for WordPress plugin
-    if (typeof window !== 'undefined') {
-      (window as any).pluginApi = {
-        getPlugins,
-        verifyPluginVersion,
-        getPluginDownloadUrl,
-      };
-    }
-  }, []);
 
   return (
     <div className="min-h-screen bg-background p-6 md:p-8">
@@ -124,16 +122,20 @@ const Index = () => {
         )}
 
         <div className="grid gap-4">
-          {plugins.map((plugin) => (
-            <PluginCard
-              key={plugin.id}
-              {...plugin}
-              onDelete={() => handleDelete(plugin.id)}
-              onDownload={() => handleDownload(plugin.id)}
-            />
-          ))}
-          
-          {plugins.length === 0 && !showUploadForm && (
+          {isLoading ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">Loading plugins...</p>
+            </div>
+          ) : plugins.length > 0 ? (
+            plugins.map((plugin) => (
+              <PluginCard
+                key={plugin.id}
+                {...plugin}
+                onDelete={() => handleDelete(plugin.id)}
+                onDownload={() => handleDownload(plugin.id)}
+              />
+            ))
+          ) : (
             <div className="text-center py-12 bg-card rounded-lg border">
               <p className="text-muted-foreground">
                 No plugins uploaded yet. Click "Add Plugin" to get started.

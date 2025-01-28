@@ -1,3 +1,10 @@
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
+
 interface PluginResponse {
   id: string;
   name: string;
@@ -14,49 +21,104 @@ const plugins: PluginResponse[] = [];
 const BASE_URL = window.location.origin;
 
 export const getPlugins = async (): Promise<PluginResponse[]> => {
-  // Return mock data for testing
-  return [
-    {
-      id: "1",
-      name: "Example Plugin",
-      version: "1.0.0",
-      description: "An example plugin for testing",
-      downloadUrl: `${BASE_URL}/api/plugins/download/1`,
-      isInstalled: false
-    },
-    {
-      id: "2",
-      name: "Test Plugin",
-      version: "2.0.0",
-      description: "A test plugin for demonstration",
-      downloadUrl: `${BASE_URL}/api/plugins/download/2`,
-      isInstalled: false
-    }
-  ];
-};
+  const { data, error } = await supabase
+    .from('plugins')
+    .select('*');
 
-export const getPluginDownloadUrl = (pluginId: string): string => {
-  return `${BASE_URL}/api/plugins/download/${pluginId}`;
-};
-
-export const verifyPluginVersion = async (
-  pluginName: string,
-  currentVersion: string
-): Promise<{
-  hasUpdate: boolean;
-  latestVersion: string;
-}> => {
-  const plugins = await getPlugins();
-  const plugin = plugins.find(p => p.name === pluginName);
-  
-  if (!plugin) {
-    return { hasUpdate: false, latestVersion: currentVersion };
+  if (error) {
+    console.error('Error fetching plugins:', error);
+    throw error;
   }
 
-  return {
-    hasUpdate: plugin.version !== currentVersion,
-    latestVersion: plugin.version
-  };
+  return data || [];
+};
+
+export const uploadPlugin = async (file: File, version: string, description: string) => {
+  // Upload file to Supabase Storage
+  const fileName = `${Date.now()}-${file.name}`;
+  const { data: fileData, error: fileError } = await supabase.storage
+    .from('plugin-files')
+    .upload(fileName, file);
+
+  if (fileError) {
+    console.error('Error uploading file:', fileError);
+    throw fileError;
+  }
+
+  // Get the public URL for the uploaded file
+  const { data: { publicUrl } } = supabase.storage
+    .from('plugin-files')
+    .getPublicUrl(fileName);
+
+  // Store plugin metadata in the database
+  const { data, error } = await supabase
+    .from('plugins')
+    .insert([
+      {
+        name: file.name.replace('.zip', ''),
+        version,
+        description,
+        file_url: publicUrl,
+        upload_date: new Date().toISOString(),
+      }
+    ])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error inserting plugin:', error);
+    throw error;
+  }
+
+  return data;
+};
+
+export const deletePlugin = async (id: string) => {
+  // Get the plugin to find its file URL
+  const { data: plugin } = await supabase
+    .from('plugins')
+    .select('file_url')
+    .eq('id', id)
+    .single();
+
+  if (plugin?.file_url) {
+    // Extract filename from URL
+    const fileName = plugin.file_url.split('/').pop();
+    if (fileName) {
+      // Delete file from storage
+      await supabase.storage
+        .from('plugin-files')
+        .remove([fileName]);
+    }
+  }
+
+  // Delete plugin metadata from database
+  const { error } = await supabase
+    .from('plugins')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting plugin:', error);
+    throw error;
+  }
+
+  return true;
+};
+
+export const getPluginDownloadUrl = async (pluginId: string): Promise<string> => {
+  const { data, error } = await supabase
+    .from('plugins')
+    .select('file_url')
+    .eq('id', pluginId)
+    .single();
+
+  if (error) {
+    console.error('Error getting plugin download URL:', error);
+    throw error;
+  }
+
+  return data.file_url;
 };
 
 // Check if a plugin is installed
