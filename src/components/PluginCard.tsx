@@ -8,7 +8,7 @@ interface PluginCardProps {
   name: string;
   version: string;
   description: string;
-  uploadDate: string;
+  upload_date: string;  // Changed from uploadDate to upload_date to match Supabase
   onDownload: () => void;
   onDelete: () => void;
 }
@@ -17,7 +17,7 @@ const PluginCard = ({
   name,
   version,
   description,
-  uploadDate,
+  upload_date,  // Changed from uploadDate to upload_date
   onDownload,
   onDelete,
 }: PluginCardProps) => {
@@ -54,7 +54,7 @@ const PluginCard = ({
       </CardContent>
       <CardFooter>
         <p className="text-xs text-muted-foreground">
-          Uploaded: {uploadDate}
+          Uploaded: {upload_date}
         </p>
       </CardFooter>
     </Card>
