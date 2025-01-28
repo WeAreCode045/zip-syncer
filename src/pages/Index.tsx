@@ -4,6 +4,7 @@ import UploadForm from '@/components/UploadForm';
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { getPlugins, getPluginDownloadUrl, verifyPluginVersion } from '@/utils/api';
 
 interface Plugin {
   id: string;
@@ -23,7 +24,7 @@ const Index = () => {
       // TODO: Implement actual API call
       const mockPlugin = {
         id: Date.now().toString(),
-        name: "Plugin Name",
+        name: formData.get("file") as File ? (formData.get("file") as File).name.replace('.zip', '') : "Plugin Name",
         version: formData.get("version") as string,
         description: formData.get("description") as string,
         uploadDate: new Date().toLocaleDateString(),
@@ -53,13 +54,35 @@ const Index = () => {
     });
   };
 
-  const handleDownload = (id: string) => {
-    // TODO: Implement actual download logic
-    toast({
-      title: "Success",
-      description: "Plugin download started",
-    });
+  const handleDownload = async (id: string) => {
+    try {
+      const downloadUrl = getPluginDownloadUrl(id);
+      window.open(downloadUrl, '_blank');
+      
+      toast({
+        title: "Success",
+        description: "Plugin download started",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download plugin",
+        variant: "destructive",
+      });
+    }
   };
+
+  // API endpoint for WordPress plugin version check
+  React.useEffect(() => {
+    // Expose API endpoints for WordPress plugin
+    if (typeof window !== 'undefined') {
+      (window as any).pluginApi = {
+        getPlugins,
+        verifyPluginVersion,
+        getPluginDownloadUrl,
+      };
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-background p-6 md:p-8">
