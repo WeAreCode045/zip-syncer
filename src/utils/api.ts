@@ -6,6 +6,9 @@ interface PluginResponse {
   downloadUrl: string;
 }
 
+// Initialize an empty plugins array to store the data
+const plugins: PluginResponse[] = [];
+
 export const getPlugins = async (): Promise<PluginResponse[]> => {
   // This would typically fetch from your backend
   // For now, we'll return the plugins from state
