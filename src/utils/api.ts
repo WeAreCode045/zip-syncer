@@ -14,13 +14,28 @@ const plugins: PluginResponse[] = [];
 const BASE_URL = window.location.origin;
 
 export const getPlugins = async (): Promise<PluginResponse[]> => {
-  // This would typically fetch from your backend
-  // For now, we'll return the plugins from state
-  return plugins;
+  // Return mock data for testing
+  return [
+    {
+      id: "1",
+      name: "Example Plugin",
+      version: "1.0.0",
+      description: "An example plugin for testing",
+      downloadUrl: `${BASE_URL}/api/plugins/download/1`,
+      isInstalled: false
+    },
+    {
+      id: "2",
+      name: "Test Plugin",
+      version: "2.0.0",
+      description: "A test plugin for demonstration",
+      downloadUrl: `${BASE_URL}/api/plugins/download/2`,
+      isInstalled: false
+    }
+  ];
 };
 
 export const getPluginDownloadUrl = (pluginId: string): string => {
-  // In a real implementation, this would generate a secure, temporary download URL
   return `${BASE_URL}/api/plugins/download/${pluginId}`;
 };
 
@@ -44,16 +59,28 @@ export const verifyPluginVersion = async (
   };
 };
 
-// New function to check if a plugin is installed
+// Check if a plugin is installed
 export const checkPluginInstallation = async (pluginName: string): Promise<boolean> => {
-  // This function would be called from WordPress to check if the plugin exists
-  // For now, we'll return a mock response
-  return false;
+  try {
+    const response = await fetch(`${BASE_URL}/api/plugins/check-installation/${pluginName}`);
+    const data = await response.json();
+    return data.installed;
+  } catch (error) {
+    console.error('Error checking plugin installation:', error);
+    return false;
+  }
 };
 
-// New function to install a plugin
+// Install a plugin
 export const installPlugin = async (pluginId: string): Promise<boolean> => {
-  // This function would handle the plugin installation process
-  // For now, we'll return a mock success response
-  return true;
+  try {
+    const response = await fetch(`${BASE_URL}/api/plugins/install/${pluginId}`, {
+      method: 'POST',
+    });
+    const data = await response.json();
+    return data.success;
+  } catch (error) {
+    console.error('Error installing plugin:', error);
+    return false;
+  }
 };
