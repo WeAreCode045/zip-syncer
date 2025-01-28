@@ -7,6 +7,7 @@ interface Plugin {
   version: string;
   description: string;
   upload_date: string;
+  file_url: string;
 }
 
 interface PluginsGridProps {

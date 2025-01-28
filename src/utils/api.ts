@@ -10,8 +10,8 @@ interface PluginResponse {
   name: string;
   version: string;
   description: string;
-  downloadUrl: string;
-  isInstalled?: boolean;
+  file_url: string;
+  upload_date: string;
 }
 
 // Initialize an empty plugins array to store the data
