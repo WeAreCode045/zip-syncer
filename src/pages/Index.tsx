@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PluginCard from '@/components/PluginCard';
 import UploadForm from '@/components/UploadForm';
 import { Button } from "@/components/ui/button";
@@ -14,14 +14,28 @@ interface Plugin {
   uploadDate: string;
 }
 
+const STORAGE_KEY = 'plugin_library_plugins';
+
 const Index = () => {
   const [showUploadForm, setShowUploadForm] = useState(false);
   const [plugins, setPlugins] = useState<Plugin[]>([]);
   const { toast } = useToast();
 
+  // Load plugins from localStorage on component mount
+  useEffect(() => {
+    const storedPlugins = localStorage.getItem(STORAGE_KEY);
+    if (storedPlugins) {
+      setPlugins(JSON.parse(storedPlugins));
+    }
+  }, []);
+
+  // Save plugins to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(plugins));
+  }, [plugins]);
+
   const handleUpload = async (formData: FormData) => {
     try {
-      // TODO: Implement actual API call
       const mockPlugin = {
         id: Date.now().toString(),
         name: formData.get("file") as File ? (formData.get("file") as File).name.replace('.zip', '') : "Plugin Name",
