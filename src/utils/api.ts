@@ -23,43 +23,53 @@ export const getPlugins = async (): Promise<Plugin[]> => {
 };
 
 export const uploadPlugin = async (file: File, version: string, description: string) => {
-  // Upload file to Supabase Storage
-  const fileName = `${Date.now()}-${file.name}`;
-  const { data: fileData, error: fileError } = await supabase.storage
-    .from('plugin-files')
-    .upload(fileName, file);
+  try {
+    // Create a unique filename
+    const fileName = `${Date.now()}-${file.name}`;
 
-  if (fileError) {
-    console.error('Error uploading file:', fileError);
-    throw fileError;
-  }
+    // Upload file to Supabase Storage
+    const { data: fileData, error: uploadError } = await supabase.storage
+      .from('plugin-files')
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
 
-  // Get the public URL for the uploaded file
-  const { data: { publicUrl } } = supabase.storage
-    .from('plugin-files')
-    .getPublicUrl(fileName);
+    if (uploadError) {
+      console.error('Error uploading file:', uploadError);
+      throw uploadError;
+    }
 
-  // Store plugin metadata in the database
-  const { data, error } = await supabase
-    .from('plugins')
-    .insert([
-      {
-        name: file.name.replace('.zip', ''),
-        version,
-        description,
-        file_url: publicUrl,
-        upload_date: new Date().toISOString(),
-      }
-    ])
-    .select()
-    .single();
+    // Get the public URL for the uploaded file
+    const { data: { publicUrl } } = supabase.storage
+      .from('plugin-files')
+      .getPublicUrl(fileName);
 
-  if (error) {
-    console.error('Error inserting plugin:', error);
+    // Store plugin metadata in the database
+    const { data, error: dbError } = await supabase
+      .from('plugins')
+      .insert([
+        {
+          name: file.name.replace('.zip', ''),
+          version,
+          description,
+          file_url: publicUrl,
+          upload_date: new Date().toISOString(),
+        }
+      ])
+      .select()
+      .single();
+
+    if (dbError) {
+      console.error('Error inserting plugin:', dbError);
+      throw dbError;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in uploadPlugin:', error);
     throw error;
   }
-
-  return data;
 };
 
 export const deletePlugin = async (id: string) => {
