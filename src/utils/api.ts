@@ -42,7 +42,18 @@ export const uploadPlugin = async (file: File, version: string, description: str
 
     if (uploadError) {
       console.error('Error uploading file:', uploadError);
-      throw uploadError;
+      // Parse error message if it's HTML or JSON
+      let errorMessage = uploadError.message;
+      try {
+        if (uploadError.message.includes('{')) {
+          const parsedError = JSON.parse(uploadError.message);
+          errorMessage = parsedError.message || parsedError.error || errorMessage;
+        }
+      } catch (e) {
+        // If parsing fails, use the original error message
+        console.error('Error parsing error message:', e);
+      }
+      throw new Error(errorMessage);
     }
 
     // Get the public URL for the uploaded file
