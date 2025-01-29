@@ -9,7 +9,8 @@ const BASE_URL = window.location.origin;
 export const getPlugins = async (): Promise<Plugin[]> => {
   const { data, error } = await supabase
     .from('plugins')
-    .select('*');
+    .select('*')
+    .order('upload_date', { ascending: false });
 
   if (error) {
     console.error('Error fetching plugins:', error);
@@ -144,6 +145,9 @@ export const getPluginDownloadUrl = async (pluginId: string): Promise<string> =>
 export const checkPluginInstallation = async (pluginName: string): Promise<boolean> => {
   try {
     const response = await fetch(`${BASE_URL}/api/plugins/check-installation/${pluginName}`);
+    if (!response.ok) {
+      throw new Error('Failed to check plugin installation');
+    }
     const data = await response.json();
     return data.installed;
   } catch (error) {
@@ -158,6 +162,9 @@ export const installPlugin = async (pluginId: string): Promise<boolean> => {
     const response = await fetch(`${BASE_URL}/api/plugins/install/${pluginId}`, {
       method: 'POST',
     });
+    if (!response.ok) {
+      throw new Error('Failed to install plugin');
+    }
     const data = await response.json();
     return data.success;
   } catch (error) {
