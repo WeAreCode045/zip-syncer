@@ -3,8 +3,8 @@ import type { Database } from '@/integrations/supabase/types';
 
 type Plugin = Database['public']['Tables']['plugins']['Row'];
 
-// Base URL for the API endpoints
-const BASE_URL = window.location.origin;
+// Base URL for WordPress REST API endpoints
+const WP_API_BASE = `${window.location.protocol}//${window.location.hostname}/wp-json/lovable/v1`;
 
 export const getPlugins = async (): Promise<Plugin[]> => {
   const { data, error } = await supabase
@@ -33,7 +33,7 @@ export const uploadPlugin = async (file: File, version: string, description: str
     // Create a unique filename
     const fileName = `${Date.now()}-${file.name}`;
 
-    // Upload file to Supabase Storage with authenticated session
+    // Upload file to Supabase Storage
     const { data: fileData, error: uploadError } = await supabase.storage
       .from('plugin-files')
       .upload(fileName, file, {
@@ -43,7 +43,6 @@ export const uploadPlugin = async (file: File, version: string, description: str
 
     if (uploadError) {
       console.error('Error uploading file:', uploadError);
-      // Parse error message if it's HTML or JSON
       let errorMessage = uploadError.message;
       try {
         if (uploadError.message.includes('{')) {
@@ -51,7 +50,6 @@ export const uploadPlugin = async (file: File, version: string, description: str
           errorMessage = parsedError.message || parsedError.error || errorMessage;
         }
       } catch (e) {
-        // If parsing fails, use the original error message
         console.error('Error parsing error message:', e);
       }
       throw new Error(errorMessage);
@@ -141,12 +139,13 @@ export const getPluginDownloadUrl = async (pluginId: string): Promise<string> =>
   return data.file_url;
 };
 
-// Check if a plugin is installed
+// Check if a plugin is installed using WordPress REST API
 export const checkPluginInstallation = async (pluginName: string): Promise<boolean> => {
   try {
-    const response = await fetch(`${BASE_URL}/api/plugins/check-installation/${pluginName}`);
+    const response = await fetch(`${WP_API_BASE}/plugins/check/${encodeURIComponent(pluginName)}`);
     if (!response.ok) {
-      throw new Error('Failed to check plugin installation');
+      console.error('Failed to check plugin installation:', await response.text());
+      return false;
     }
     const data = await response.json();
     return data.installed;
@@ -156,15 +155,21 @@ export const checkPluginInstallation = async (pluginName: string): Promise<boole
   }
 };
 
-// Install a plugin
+// Install a plugin using WordPress REST API
 export const installPlugin = async (pluginId: string): Promise<boolean> => {
   try {
-    const response = await fetch(`${BASE_URL}/api/plugins/install/${pluginId}`, {
+    const response = await fetch(`${WP_API_BASE}/plugins/install/${encodeURIComponent(pluginId)}`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      }
     });
+    
     if (!response.ok) {
-      throw new Error('Failed to install plugin');
+      console.error('Failed to install plugin:', await response.text());
+      return false;
     }
+    
     const data = await response.json();
     return data.success;
   } catch (error) {
