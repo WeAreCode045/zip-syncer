@@ -21,10 +21,18 @@ export const getPlugins = async (): Promise<Plugin[]> => {
 
 export const uploadPlugin = async (file: File, version: string, description: string) => {
   try {
+    // Get the current session to ensure we're authenticated
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session) {
+      console.error('Authentication error:', sessionError);
+      throw new Error('User must be authenticated to upload plugins');
+    }
+
     // Create a unique filename
     const fileName = `${Date.now()}-${file.name}`;
 
-    // Upload file to Supabase Storage
+    // Upload file to Supabase Storage with authenticated session
     const { data: fileData, error: uploadError } = await supabase.storage
       .from('plugin-files')
       .upload(fileName, file, {
