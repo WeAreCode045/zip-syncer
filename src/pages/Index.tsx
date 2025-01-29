@@ -5,11 +5,13 @@ import { getPlugins, uploadPlugin, deletePlugin, getPluginDownloadUrl } from '@/
 import PageHeader from '@/components/PageHeader';
 import UploadFormSection from '@/components/UploadFormSection';
 import PluginsGrid from '@/components/PluginsGrid';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Index = () => {
   const [showUploadForm, setShowUploadForm] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: plugins = [], isLoading } = useQuery({
     queryKey: ['plugins'],
@@ -59,10 +61,26 @@ const Index = () => {
   });
 
   const handleUpload = (formData: FormData) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be signed in to upload plugins",
+        variant: "destructive",
+      });
+      return;
+    }
     uploadMutation.mutate(formData);
   };
 
   const handleDelete = (id: string) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be signed in to delete plugins",
+        variant: "destructive",
+      });
+      return;
+    }
     deleteMutation.mutate(id);
   };
 
@@ -88,7 +106,7 @@ const Index = () => {
     <div className="min-h-screen bg-background p-6 md:p-8">
       <div className="max-w-4xl mx-auto space-y-8">
         <PageHeader onAddClick={() => setShowUploadForm(!showUploadForm)} />
-        <UploadFormSection show={showUploadForm} onUpload={handleUpload} />
+        {user && <UploadFormSection show={showUploadForm} onUpload={handleUpload} />}
         <PluginsGrid
           plugins={plugins}
           isLoading={isLoading}
