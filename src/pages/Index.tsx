@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getPlugins, uploadPlugin, deletePlugin, getPluginDownloadUrl } from '@/utils/api';
 import PageHeader from '@/components/PageHeader';
 import UploadFormSection from '@/components/UploadFormSection';
 import PluginsGrid from '@/components/PluginsGrid';
+import ServerList from '@/components/ServerList';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Index = () => {
@@ -107,6 +108,7 @@ const Index = () => {
       <div className="max-w-4xl mx-auto space-y-8">
         <PageHeader onAddClick={() => setShowUploadForm(!showUploadForm)} />
         {user && <UploadFormSection show={showUploadForm} onUpload={handleUpload} />}
+        <ServerList />
         <PluginsGrid
           plugins={plugins}
           isLoading={isLoading}
