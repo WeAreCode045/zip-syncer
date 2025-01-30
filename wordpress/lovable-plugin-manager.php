@@ -24,6 +24,105 @@ function lovable_plugin_manager_menu() {
 }
 add_action('admin_menu', 'lovable_plugin_manager_menu');
 
+// Register REST API endpoints
+function lovable_register_rest_routes() {
+    register_rest_route('lovable/v1', '/plugins/check/(?P<name>[a-zA-Z0-9-_]+)', array(
+        'methods' => 'GET',
+        'callback' => 'lovable_check_plugin_installation',
+        'permission_callback' => function() {
+            return current_user_can('install_plugins');
+        }
+    ));
+
+    register_rest_route('lovable/v1', '/plugins/install/(?P<id>[a-zA-Z0-9-]+)', array(
+        'methods' => 'POST',
+        'callback' => 'lovable_install_plugin',
+        'permission_callback' => function() {
+            return current_user_can('install_plugins');
+        }
+    ));
+}
+add_action('rest_api_init', 'lovable_register_rest_routes');
+
+// Check if a plugin is installed
+function lovable_check_plugin_installation($request) {
+    $plugin_name = $request['name'];
+    
+    if (!function_exists('get_plugins')) {
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+    }
+    
+    $all_plugins = get_plugins();
+    $installed = false;
+
+    foreach ($all_plugins as $plugin_path => $plugin_data) {
+        if (strpos($plugin_path, $plugin_name) !== false) {
+            $installed = true;
+            break;
+        }
+    }
+
+    return new WP_REST_Response(array(
+        'installed' => $installed
+    ), 200);
+}
+
+// Install a plugin
+function lovable_install_plugin($request) {
+    $plugin_id = $request['id'];
+    
+    // Include required files for plugin installation
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    require_once ABSPATH . 'wp-admin/includes/plugin-install.php';
+    require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+    require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+    // Get plugin file URL from Supabase
+    $supabase_url = 'https://phqwdiaixmwtfhvmbthr.supabase.co';
+    $supabase_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBocXdkaWFpeG13dGZodm1idGhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgxMDQxNjYsImV4cCI6MjA1MzY4MDE2Nn0.BbruO7b9IPSxJUsV0_hGuvOTFC3egmkCfFiiW3YiR1U';
+    
+    $response = wp_remote_get($supabase_url . '/rest/v1/plugins?id=eq.' . $plugin_id, array(
+        'headers' => array(
+            'apikey' => $supabase_key,
+            'Authorization' => 'Bearer ' . $supabase_key
+        )
+    ));
+
+    if (is_wp_error($response)) {
+        return new WP_REST_Response(array(
+            'success' => false,
+            'message' => 'Failed to fetch plugin information'
+        ), 500);
+    }
+
+    $plugin_data = json_decode(wp_remote_retrieve_body($response), true);
+    
+    if (empty($plugin_data)) {
+        return new WP_REST_Response(array(
+            'success' => false,
+            'message' => 'Plugin not found'
+        ), 404);
+    }
+
+    $plugin_url = $plugin_data[0]['file_url'];
+    
+    // Download and install the plugin
+    $upgrader = new Plugin_Upgrader(new WP_Ajax_Upgrader_Skin());
+    $result = $upgrader->install($plugin_url);
+
+    if (is_wp_error($result)) {
+        return new WP_REST_Response(array(
+            'success' => false,
+            'message' => $result->get_error_message()
+        ), 500);
+    }
+
+    return new WP_REST_Response(array(
+        'success' => true,
+        'message' => 'Plugin installed successfully'
+    ), 200);
+}
+
 // Create the admin page
 function lovable_plugin_manager_page() {
     ?>
@@ -123,40 +222,3 @@ function lovable_plugin_manager_page() {
     </style>
     <?php
 }
-
-// Handle plugin installation
-function lovable_install_plugin() {
-    // Check for admin privileges
-    if (!current_user_can('install_plugins')) {
-        wp_send_json_error('Insufficient permissions');
-        return;
-    }
-
-    // Verify nonce and check for file
-    if (!isset($_FILES['plugin_file'])) {
-        wp_send_json_error('No plugin file provided');
-        return;
-    }
-
-    // Include required files for plugin installation
-    require_once(ABSPATH . 'wp-admin/includes/file.php');
-    require_once(ABSPATH . 'wp-admin/includes/plugin-install.php');
-    require_once(ABSPATH . 'wp-admin/includes/class-wp-upgrader.php');
-    require_once(ABSPATH . 'wp-admin/includes/plugin.php');
-
-    // Set up the upgrader
-    $upgrader = new Plugin_Upgrader(new WP_Ajax_Upgrader_Skin());
-
-    // Get the temporary file
-    $file = $_FILES['plugin_file']['tmp_name'];
-
-    // Install the plugin
-    $result = $upgrader->install($file);
-
-    if (is_wp_error($result)) {
-        wp_send_json_error($result->get_error_message());
-    } else {
-        wp_send_json_success('Plugin installed successfully');
-    }
-}
-add_action('wp_ajax_lovable_install_plugin', 'lovable_install_plugin');
