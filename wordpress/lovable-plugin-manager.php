@@ -11,9 +11,17 @@ if (!defined('ABSPATH')) {
 }
 
 class Lovable_Plugin_Manager {
+    private $options;
+
     public function __construct() {
         add_action('rest_api_init', array($this, 'register_rest_routes'));
         add_action('admin_menu', array($this, 'add_admin_menu'));
+        add_action('admin_init', array($this, 'register_settings'));
+    }
+
+    public function register_settings() {
+        register_setting('lovable_plugin_manager', 'lovable_server_url');
+        register_setting('lovable_plugin_manager', 'lovable_api_key');
     }
 
     public function add_admin_menu() {
@@ -25,6 +33,77 @@ class Lovable_Plugin_Manager {
             array($this, 'render_admin_page'),
             'dashicons-admin-plugins'
         );
+
+        add_submenu_page(
+            'lovable-plugin-manager',
+            'Settings',
+            'Settings',
+            'manage_options',
+            'lovable-plugin-manager-settings',
+            array($this, 'render_settings_page')
+        );
+    }
+
+    public function render_settings_page() {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        // Save Settings
+        if (isset($_POST['submit_lovable_settings'])) {
+            if (check_admin_referer('lovable_settings_nonce')) {
+                update_option('lovable_server_url', sanitize_text_field($_POST['lovable_server_url']));
+                update_option('lovable_api_key', sanitize_text_field($_POST['lovable_api_key']));
+                echo '<div class="notice notice-success"><p>Settings saved successfully!</p></div>';
+            }
+        }
+
+        $server_url = get_option('lovable_server_url', '');
+        $api_key = get_option('lovable_api_key', '');
+        ?>
+        <div class="wrap">
+            <h1>Lovable Plugin Manager Settings</h1>
+            <form method="post" action="">
+                <?php wp_nonce_field('lovable_settings_nonce'); ?>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row">
+                            <label for="lovable_server_url">Server URL</label>
+                        </th>
+                        <td>
+                            <input type="url" 
+                                   id="lovable_server_url" 
+                                   name="lovable_server_url" 
+                                   value="<?php echo esc_attr($server_url); ?>" 
+                                   class="regular-text"
+                                   required>
+                            <p class="description">Enter the URL of your Lovable Plugin Server</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            <label for="lovable_api_key">API Key</label>
+                        </th>
+                        <td>
+                            <input type="text" 
+                                   id="lovable_api_key" 
+                                   name="lovable_api_key" 
+                                   value="<?php echo esc_attr($api_key); ?>" 
+                                   class="regular-text"
+                                   required>
+                            <p class="description">Enter the API key from your Lovable Plugin Server</p>
+                        </td>
+                    </tr>
+                </table>
+                <p class="submit">
+                    <input type="submit" 
+                           name="submit_lovable_settings" 
+                           class="button button-primary" 
+                           value="Save Settings">
+                </p>
+            </form>
+        </div>
+        <?php
     }
 
     public function render_admin_page() {
