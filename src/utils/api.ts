@@ -7,17 +7,22 @@ type Plugin = Database['public']['Tables']['plugins']['Row'];
 const WP_API_BASE = `${window.location.protocol}//${window.location.hostname}/wp-json/lovable/v1`;
 
 export const getPlugins = async (): Promise<Plugin[]> => {
-  const { data, error } = await supabase
-    .from('plugins')
-    .select('*')
-    .order('upload_date', { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from('plugins')
+      .select('*')
+      .order('upload_date', { ascending: false });
 
-  if (error) {
-    console.error('Error fetching plugins:', error);
+    if (error) {
+      console.error('Error fetching plugins:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getPlugins:', error);
     throw error;
   }
-
-  return data || [];
 };
 
 export const uploadPlugin = async (file: File, version: string, description: string) => {
@@ -88,55 +93,65 @@ export const uploadPlugin = async (file: File, version: string, description: str
 };
 
 export const deletePlugin = async (id: string) => {
-  // Get the plugin to find its file URL
-  const { data: plugin } = await supabase
-    .from('plugins')
-    .select('file_url')
-    .eq('id', id)
-    .single();
+  try {
+    // Get the plugin to find its file URL
+    const { data: plugin } = await supabase
+      .from('plugins')
+      .select('file_url')
+      .eq('id', id)
+      .single();
 
-  if (plugin?.file_url) {
-    // Extract filename from URL
-    const fileName = plugin.file_url.split('/').pop();
-    if (fileName) {
-      // Delete file from storage
-      await supabase.storage
-        .from('plugin-files')
-        .remove([fileName]);
+    if (plugin?.file_url) {
+      // Extract filename from URL
+      const fileName = plugin.file_url.split('/').pop();
+      if (fileName) {
+        // Delete file from storage
+        await supabase.storage
+          .from('plugin-files')
+          .remove([fileName]);
+      }
     }
-  }
 
-  // Delete plugin metadata from database
-  const { error } = await supabase
-    .from('plugins')
-    .delete()
-    .eq('id', id);
+    // Delete plugin metadata from database
+    const { error } = await supabase
+      .from('plugins')
+      .delete()
+      .eq('id', id);
 
-  if (error) {
-    console.error('Error deleting plugin:', error);
+    if (error) {
+      console.error('Error deleting plugin:', error);
+      throw error;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in deletePlugin:', error);
     throw error;
   }
-
-  return true;
 };
 
 export const getPluginDownloadUrl = async (pluginId: string): Promise<string> => {
-  const { data, error } = await supabase
-    .from('plugins')
-    .select('file_url')
-    .eq('id', pluginId)
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from('plugins')
+      .select('file_url')
+      .eq('id', pluginId)
+      .single();
 
-  if (error) {
-    console.error('Error getting plugin download URL:', error);
+    if (error) {
+      console.error('Error getting plugin download URL:', error);
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error('Plugin not found');
+    }
+
+    return data.file_url;
+  } catch (error) {
+    console.error('Error in getPluginDownloadUrl:', error);
     throw error;
   }
-
-  if (!data) {
-    throw new Error('Plugin not found');
-  }
-
-  return data.file_url;
 };
 
 // Check if a plugin is installed using WordPress REST API
